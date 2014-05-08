@@ -17,9 +17,7 @@ package org.kiji.maven.plugins;
  */
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.util.Map;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -40,7 +38,7 @@ public class StartMojo extends AbstractMojo {
   private boolean mSkip;
 
   /** Number of nodes in the Cassandra cluster. */
-  @Parameter(property = "num.nodes", defaultValue = "1")
+  @Parameter(defaultValue = "1", alias = "numnodes")
   private int mNumNodes;
 
   /** Port to use for Cassandra native transport. */
@@ -48,8 +46,20 @@ public class StartMojo extends AbstractMojo {
   private int mPortNativeTransport;
 
   /** Number of vnodes per Cassandra node. */
-  @Parameter(property = "num.vnodes", defaultValue = "256")
-  private int mNumVnodes;
+  @Parameter(property = "num.virtual.nodes", defaultValue = "256")
+  private int mNumVirtualNodes;
+
+  /** Directory into which to put all of the Cassandra stuff. */
+  @Parameter(property = "cassandra.dir", defaultValue = "${project.build.directory}/cassandra")
+  private File mCassandraDir;
+
+  int getPortNativeTransport() {
+    return mPortNativeTransport;
+  }
+
+  int getNumVnodes() {
+    return mNumVirtualNodes;
+  }
 
   /**
    * Starts a mini Cassandra cluster in a new set of threads.
@@ -70,9 +80,21 @@ public class StartMojo extends AbstractMojo {
 
     // Start the cluster.
     try {
-      MiniCassandraClusterSingleton.INSTANCE.startAndWaitUntilReady(getLog());
+      MiniCassandraClusterSingleton.INSTANCE.startAndWaitUntilReady(
+          getLog(),
+          createCassandraConfiguration()
+      );
     } catch (IOException e) {
       throw new MojoExecutionException("Unable to start Cassandra cluster.", e);
     }
+  }
+
+  private CassandraConfiguration createCassandraConfiguration() {
+    CassandraConfiguration config = new CassandraConfiguration();
+    config.setCassandraDir(mCassandraDir);
+    config.setNumNodes(mNumNodes);
+    config.setNumVirtualNodes(mNumVirtualNodes);
+    config.setPortNativeTransport(mPortNativeTransport);
+    return config;
   }
 }

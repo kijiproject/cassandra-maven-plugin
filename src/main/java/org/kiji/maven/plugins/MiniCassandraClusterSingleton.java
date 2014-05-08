@@ -23,9 +23,9 @@ public enum MiniCassandraClusterSingleton {
    * @param log The maven log.
    * @throws java.io.IOException If there is an error.
    */
-  public void startAndWaitUntilReady(Log log) throws IOException {
+  public void startAndWaitUntilReady(Log log, CassandraConfiguration config) throws IOException {
     // TODO: Add support for also starting a mapreduce cluster.
-    mCluster = new MiniCassandraCluster(log);
+    mCluster = new MiniCassandraCluster(log, config);
     mThread = new MiniCassandraClusterThread(log, mCluster);
 
     log.info("Starting new thread...");

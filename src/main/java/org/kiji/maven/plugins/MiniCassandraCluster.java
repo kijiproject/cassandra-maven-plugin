@@ -1,5 +1,8 @@
 package org.kiji.maven.plugins;
 
+import java.util.List;
+
+import com.google.common.collect.Lists;
 import org.apache.maven.plugin.logging.Log;
 
 /**
@@ -9,8 +12,11 @@ public class MiniCassandraCluster extends MavenLogged {
   /** Whether the cluster is running. */
   private boolean mIsRunning;
 
-  public MiniCassandraCluster(Log log) {
+  private CassandraConfiguration mCassandraConfiguration;
+
+  public MiniCassandraCluster(Log log, CassandraConfiguration config) {
     super(log);
+    mCassandraConfiguration = config;
     mIsRunning = false;
   }
 
@@ -27,7 +33,37 @@ public class MiniCassandraCluster extends MavenLogged {
     if (isRunning()) {
       throw new RuntimeException("Cluster already running.");
     }
-    // TODO: Some stuff.
+
+    // TODO: Check that the number of nodes is legal...
+    List<String> seeds = Lists.newArrayList();
+    for (int nodeNum = 1; nodeNum < 1+mCassandraConfiguration.getNumNodes(); nodeNum++) {
+      seeds.add("127.0.0." + nodeNum);
+    }
+
+    List<MiniCassandraClusterNode> nodes = Lists.newArrayList();
+
+    // Create a separate object for each node in the cluster.
+    for (int nodeNum = 0; nodeNum < mCassandraConfiguration.getNumNodes(); nodeNum++) {
+      nodes.add(new MiniCassandraClusterNode(
+          getLog(),
+          nodeNum,
+          seeds.get(nodeNum),
+          seeds,
+          mCassandraConfiguration));
+    }
+
+    // Create root directory.
+    if (!mCassandraConfiguration.getCassandraDir().mkdir()) {
+      throw new RuntimeException("Could not create root C* dir " + mCassandraConfiguration.getCassandraDir());
+    }
+
+    // Set up all of the different conf directories.
+    for (MiniCassandraClusterNode node : nodes) {
+      node.setup();
+    }
+
+    // Actually start the nodes!
+
     mIsRunning = true;
   }
 

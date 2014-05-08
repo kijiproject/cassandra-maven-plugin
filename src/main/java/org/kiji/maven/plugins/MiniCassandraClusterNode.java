@@ -4,12 +4,15 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import org.apache.cassandra.service.EmbeddedCassandraService;
 import org.apache.maven.plugin.logging.Log;
 import org.codehaus.plexus.util.FileUtils;
 import org.codehaus.plexus.util.IOUtil;
+import org.yaml.snakeyaml.Yaml;
 
 /**
  * Represents a single node in our Cassandra cluster.
@@ -88,7 +91,7 @@ public class MiniCassandraClusterNode extends MavenLogged {
   }
 
   private void createCassandraYaml() throws IOException {
-    getLog().info("Creating YAML for node " + mNodeId + ".");
+    getLog().info("* Creating YAML for node " + mNodeId + ".");
     // Read the default Cassandra YAML file.
     String defaultYaml = IOUtil.toString(getClass().getResourceAsStream("/cassandra.yaml"));
 
@@ -96,9 +99,33 @@ public class MiniCassandraClusterNode extends MavenLogged {
     // Build a big string and then parse with YAML.
     String customYaml = createCustomYaml();
 
+    // Overwrite any settings in the default YAML with our custom settings.
+    String finalYaml = combineYaml(defaultYaml, customYaml);
+
     // Write out the new YAML.
     File cassandraYaml = new File(mConfDir, "cassandra.yaml");
-    FileUtils.fileWrite(cassandraYaml.getAbsolutePath(), customYaml);
+    FileUtils.fileWrite(cassandraYaml.getAbsolutePath(), finalYaml);
+  }
+
+  /**
+   * Update the settings in a baseline YAML description with settings from a new YAML description.
+   *
+   * Inspired by approach taken in Codehaus Cassandra Mojo.
+   *
+   * @param baselineYaml Baseline cassandra.yaml.
+   * @param newYaml YAML settings to apply on top of baseline (possibly overriding settings in
+   * baseline).
+   * @return An updated YAML description.
+   */
+  private String combineYaml(String baselineYaml, String newYaml) {
+    Yaml yaml = new Yaml();
+    Map<String, Object> baselineMap = (Map<String, Object>) yaml.load(baselineYaml);
+    Map<String, Object> newMap = (Map<String, Object>) yaml.load(newYaml);
+    for (Map.Entry<String, Object> glossEntry : newMap.entrySet())
+    {
+      baselineMap.put(glossEntry.getKey(), glossEntry.getValue());
+    }
+    return yaml.dump(baselineMap);
   }
 
   /**
@@ -129,10 +156,18 @@ public class MiniCassandraClusterNode extends MavenLogged {
         .append("\n");
 
     // TODO: Allow custom RPC port, address.
-
+    sb
+        .append("rpc_address: ")
+        .append(mMyAddress)
+        .append("\n");
     sb
         .append("native_transport_port: ")
         .append(mCassandraConfiguration.getPortNativeTransport())
+        .append("\n");
+
+    sb
+        .append("num_tokens: ")
+        .append(mCassandraConfiguration.getNumVirtualNodes())
         .append("\n");
 
     if (mSeeds.size() != 0) {
@@ -144,5 +179,23 @@ public class MiniCassandraClusterNode extends MavenLogged {
       sb.append("\"\n");
     }
     return sb.toString();
+  }
+
+  /**
+   * Start a dedicated embedded Cassandra service for this node.
+   */
+  public void start() {
+    getLog().info("Starting node " + mNodeId);
+    File cassandraYaml = new File(mConfDir, "cassandra.yaml");
+    System.setProperty("cassandra.config", "file:" + cassandraYaml.getAbsolutePath());
+    System.setProperty("cassandra-foreground", "true");
+
+    EmbeddedCassandraService embeddedCassandraService = new EmbeddedCassandraService();
+    try {
+      embeddedCassandraService.start();
+      getLog().info("Successfully started node " + mNodeId);
+    } catch (IOException ioe) {
+      getLog().warn("Could not start Cassandra node " + mNodeId);
+    }
   }
 }

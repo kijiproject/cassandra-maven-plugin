@@ -63,6 +63,9 @@ public class MiniCassandraCluster extends MavenLogged {
     }
 
     // Actually start the nodes!
+    for (MiniCassandraClusterNode node : nodes) {
+      node.start();
+    }
 
     mIsRunning = true;
   }

@@ -3,6 +3,8 @@ package org.kiji.maven.plugins;
 import java.util.Collection;
 import java.util.List;
 
+import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.Session;
 import com.google.common.collect.Lists;
 import org.apache.maven.plugin.logging.Log;
 
@@ -71,6 +73,18 @@ public class MiniCassandraCluster extends MavenLogged {
     }
 
     mIsRunning = true;
+
+    // Sanity check that we can connect to the cluster.
+    /*
+    Cluster cluster = Cluster.builder()
+        .addContactPoints(seeds.toArray(new String[seeds.size()]))
+        .withPort(mCassandraConfiguration.getPortNativeTransport())
+        .build();
+    Session session = cluster.connect();
+    getLog().info("Connected to cluster.");
+    session.close();
+    cluster.close();
+    */
   }
 
   /**

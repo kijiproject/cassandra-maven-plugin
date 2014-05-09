@@ -43,10 +43,6 @@ public class StartMojo extends AbstractMojo {
   @Parameter(defaultValue = "1", alias = "numnodes")
   private int mNumNodes;
 
-  /** Port to use for Cassandra native transport. */
-  @Parameter(property = "native.port", defaultValue = "9042")
-  private int mPortNativeTransport;
-
   /** Number of vnodes per Cassandra node. */
   @Parameter(property = "num.virtual.nodes", defaultValue = "256")
   private int mNumVirtualNodes;
@@ -55,8 +51,28 @@ public class StartMojo extends AbstractMojo {
   @Parameter(property = "cassandra.dir", defaultValue = "${project.build.directory}/cassandra")
   private File mCassandraDir;
 
+  /** Dependencies for the plugin (needed for setting the classpath for Cassandra processes). */
   @Parameter(defaultValue="${plugin.artifacts}", readonly = true)
   private List<Artifact> pluginDependencies;
+
+  // -----------------------------------------------------------------------------------------------
+  // Different port settings
+
+  /** Port to use for Cassandra native transport. */
+  @Parameter(alias = "native.port", defaultValue = "9042")
+  private int mPortNativeTransport;
+
+  /** Storage port. */
+  @Parameter(alias = "storage.port", defaultValue = "7000")
+  private int mPortStorage;
+
+  /** SSL storage port. */
+  @Parameter(alias = "ssl.storage.port", defaultValue = "7001")
+  private int mPortSslStorage;
+
+  /** RPC port. */
+  @Parameter(alias = "rpc.port", defaultValue = "9160")
+  private int mPortRpc;
 
   int getPortNativeTransport() {
     return mPortNativeTransport;
@@ -101,6 +117,9 @@ public class StartMojo extends AbstractMojo {
     config.setNumVirtualNodes(mNumVirtualNodes);
     config.setPortNativeTransport(mPortNativeTransport);
     config.setPluginDependencies(pluginDependencies);
+    config.setPortRpc(mPortRpc);
+    config.setPortSslStorage(mPortSslStorage);
+    config.setPortStorage(mPortStorage);
     return config;
   }
 }

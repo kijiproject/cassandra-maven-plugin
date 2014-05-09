@@ -14,6 +14,34 @@ public class CassandraConfiguration {
   private int numVirtualNodes;
   private File cassandraDir;
 
+  public int getPortStorage() {
+    return portStorage;
+  }
+
+  public void setPortStorage(int portStorage) {
+    this.portStorage = portStorage;
+  }
+
+  public int getPortSslStorage() {
+    return portSslStorage;
+  }
+
+  public void setPortSslStorage(int portSslStorage) {
+    this.portSslStorage = portSslStorage;
+  }
+
+  public int getPortRpc() {
+    return portRpc;
+  }
+
+  public void setPortRpc(int portRpc) {
+    this.portRpc = portRpc;
+  }
+
+  private int portStorage;
+  private int portSslStorage;
+  private int portRpc;
+
   public List<Artifact> getPluginDependencies() {
     return pluginDependencies;
   }

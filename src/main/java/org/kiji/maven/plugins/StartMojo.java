@@ -18,7 +18,9 @@ package org.kiji.maven.plugins;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
@@ -52,6 +54,9 @@ public class StartMojo extends AbstractMojo {
   /** Directory into which to put all of the Cassandra stuff. */
   @Parameter(property = "cassandra.dir", defaultValue = "${project.build.directory}/cassandra")
   private File mCassandraDir;
+
+  @Parameter(defaultValue="${plugin.artifacts}", readonly = true)
+  private List<Artifact> pluginDependencies;
 
   int getPortNativeTransport() {
     return mPortNativeTransport;
@@ -95,6 +100,7 @@ public class StartMojo extends AbstractMojo {
     config.setNumNodes(mNumNodes);
     config.setNumVirtualNodes(mNumVirtualNodes);
     config.setPortNativeTransport(mPortNativeTransport);
+    config.setPluginDependencies(pluginDependencies);
     return config;
   }
 }

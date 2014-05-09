@@ -2,13 +2,17 @@ package org.kiji.maven.plugins;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import org.apache.cassandra.service.EmbeddedCassandraService;
+import org.apache.cassandra.service.CassandraDaemon;
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.ArtifactUtils;
 import org.apache.maven.plugin.logging.Log;
 import org.codehaus.plexus.util.FileUtils;
 import org.codehaus.plexus.util.IOUtil;
@@ -18,6 +22,8 @@ import org.yaml.snakeyaml.Yaml;
  * Represents a single node in our Cassandra cluster.
  */
 public class MiniCassandraClusterNode extends MavenLogged {
+
+  private static final String CLASSPATH_SEPARATOR = ":";
 
   /** Id number for this node. */
   private final int mNodeId;
@@ -30,6 +36,9 @@ public class MiniCassandraClusterNode extends MavenLogged {
 
   /** Directory for this node. */
   private final File mRootDir;
+
+  /** Process running a Cassandra Daemon. */
+  private Process mCassandraProcess;
 
   private final File mBinDir;
   private final File mConfDir;
@@ -64,9 +73,51 @@ public class MiniCassandraClusterNode extends MavenLogged {
     createDirectories();
     try {
       createCassandraYaml();
+      createLog4jProperties();
     } catch (IOException ioe) {
       throw new RuntimeException("Problem creating YAML file.");
     }
+  }
+
+  private void createLog4jProperties() throws IOException {
+    getLog().info("Creating LOG4J for node " + mNodeId + ".");
+
+    StringBuilder sb = new StringBuilder();
+    File systemLog = new File(mRootDir, "system.log");
+
+    sb.append("log4j.rootLogger=INFO,stdout,R\n");
+    sb
+        .append("# stdout\n")
+        .append("log4j.appender.stdout=org.apache.log4j.ConsoleAppender\n")
+        .append("log4j.appender.stdout.layout=org.apache.log4j.PatternLayout\n")
+        .append("log4j.appender.stdout.layout.ConversionPattern=%5p %d{HH:mm:ss,SSS} %m%n\n");
+
+    sb
+        .append("# rolling log file\n")
+        .append("log4j.appender.R=org.apache.log4j.RollingFileAppender\n")
+        .append("log4j.appender.R.maxFileSize=20MB\n")
+        .append("log4j.appender.R.maxBackupIndex=50\n")
+        .append("log4j.appender.R.layout=org.apache.log4j.PatternLayout\n")
+        .append("log4j.appender.R.layout.ConversionPattern=%5p [%t] %d{ISO8601} %F (line %L) %m%n\n");
+
+    sb
+        .append("log4j.appender.R.File=")
+        .append(systemLog.getAbsolutePath())
+        .append("\n");
+
+    sb.append("# Application logging options\n");
+    sb
+        .append("#log4j.logger.org.apache.cassandra=DEBUG\n")
+        .append("#log4j.logger.org.apache.cassandra.db=DEBUG\n")
+        .append("#log4j.logger.org.apache.cassandra.service.StorageProxy=DEBUG\n");
+
+    sb.append("# Adding this to avoid thrift logging disconnect errors.\n");
+    sb.append("log4j.logger.org.apache.thrift.server.TNonblockingServer=ERROR\n");
+
+    String serverProperties = sb.toString();
+    // Write out the new YAML.
+    File cassandraLogs = new File(mConfDir, "log4j-server.properties");
+    FileUtils.fileWrite(cassandraLogs.getAbsolutePath(), serverProperties);
   }
 
   private void createDirectories() {
@@ -91,7 +142,7 @@ public class MiniCassandraClusterNode extends MavenLogged {
   }
 
   private void createCassandraYaml() throws IOException {
-    getLog().info("* Creating YAML for node " + mNodeId + ".");
+    getLog().info("Creating YAML for node " + mNodeId + ".");
     // Read the default Cassandra YAML file.
     String defaultYaml = IOUtil.toString(getClass().getResourceAsStream("/cassandra.yaml"));
 
@@ -181,21 +232,88 @@ public class MiniCassandraClusterNode extends MavenLogged {
     return sb.toString();
   }
 
+  private String getClasspath() {
+    // Copied mostly from the Codehaus Cassandra plugin.
+
+    StringBuilder cp = new StringBuilder();
+    try {
+      // we can't use StringUtils.join here since we need to add a '/' to
+      // the end of directory entries - otherwise the jvm will ignore them.
+      cp.append(new URL(mConfDir.toURI().toASCIIString()).toExternalForm());
+      cp.append(CLASSPATH_SEPARATOR);
+      /*
+      getLog().debug( "Adding plugin artifact: " + ArtifactUtils.versionlessKey(pluginArtifact) +
+          " to the classpath" );
+      cp.append( new URL( pluginArtifact.getFile().toURI().toASCIIString() ).toExternalForm() );
+      cp.append( ' ' );
+      */
+
+      for (Artifact artifact : mCassandraConfiguration.getPluginDependencies()) {
+        getLog().debug(
+            "Adding plugin dependency artifact: " + ArtifactUtils.versionlessKey( artifact ) +
+            " to the classpath");
+        // NOTE: if File points to a directory, this entry MUST end in '/'.
+        cp.append(new URL(artifact.getFile().toURI().toASCIIString()).toExternalForm());
+        cp.append(CLASSPATH_SEPARATOR);
+      }
+    } catch (MalformedURLException mue) {
+      getLog().error("Could not create URL for conf dir " + mConfDir + "?!");
+    }
+    return cp.toString();
+  }
+
+  private String getJavaExecutable() {
+    String separator = System.getProperty("file.separator");
+    String classpath = System.getProperty("java.class.path");
+    String path = System.getProperty("java.home")
+        + separator + "bin" + separator + "java";
+    return path;
+  }
+
+  private void updateEnvironmentVariables(Map<String, String> currentEnvironment) {
+
+    currentEnvironment.put(
+        "CASSANDRA_CONF",
+        mConfDir.getAbsolutePath()
+    );
+  }
+
   /**
-   * Start a dedicated embedded Cassandra service for this node.
+   * Start a dedicated Cassandra process for this node.
    */
   public void start() {
     getLog().info("Starting node " + mNodeId);
-    File cassandraYaml = new File(mConfDir, "cassandra.yaml");
-    System.setProperty("cassandra.config", "file:" + cassandraYaml.getAbsolutePath());
-    System.setProperty("cassandra-foreground", "true");
-
-    EmbeddedCassandraService embeddedCassandraService = new EmbeddedCassandraService();
     try {
-      embeddedCassandraService.start();
+      ProcessBuilder pb = new ProcessBuilder();
+
+      // Build a Java command line for running Cassandra.
+      String javaExec = getJavaExecutable();
+
+      // Set the classpath to include all of the dependencies for this plugin (i.e., Cassandra).
+      String classpath = getClasspath();
+
+      // Set CASSANDRA_CONF appropriately.
+      Map<String, String> environmentVariables = pb.environment();
+      updateEnvironmentVariables(environmentVariables);
+      pb.command(
+          javaExec,
+          "-cp",
+          classpath,
+          CassandraDaemon.class.getCanonicalName()
+      );
+      pb.directory(mRootDir);
+      mCassandraProcess = pb.start();
       getLog().info("Successfully started node " + mNodeId);
     } catch (IOException ioe) {
       getLog().warn("Could not start Cassandra node " + mNodeId);
     }
+  }
+
+  /**
+   * Stop the process associated with this node.
+   */
+  public void stop() {
+    mCassandraProcess.destroy();
+    getLog().info("Stopped node " + mNodeId);
   }
 }

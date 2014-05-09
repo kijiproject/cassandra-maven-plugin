@@ -1,5 +1,6 @@
 package org.kiji.maven.plugins;
 
+import java.util.Collection;
 import java.util.List;
 
 import com.google.common.collect.Lists;
@@ -13,6 +14,8 @@ public class MiniCassandraCluster extends MavenLogged {
   private boolean mIsRunning;
 
   private CassandraConfiguration mCassandraConfiguration;
+
+  private Collection<MiniCassandraClusterNode> mNodes;
 
   public MiniCassandraCluster(Log log, CassandraConfiguration config) {
     super(log);
@@ -40,11 +43,11 @@ public class MiniCassandraCluster extends MavenLogged {
       seeds.add("127.0.0." + nodeNum);
     }
 
-    List<MiniCassandraClusterNode> nodes = Lists.newArrayList();
+    mNodes = Lists.newArrayList();
 
     // Create a separate object for each node in the cluster.
     for (int nodeNum = 0; nodeNum < mCassandraConfiguration.getNumNodes(); nodeNum++) {
-      nodes.add(new MiniCassandraClusterNode(
+      mNodes.add(new MiniCassandraClusterNode(
           getLog(),
           nodeNum,
           seeds.get(nodeNum),
@@ -58,12 +61,12 @@ public class MiniCassandraCluster extends MavenLogged {
     }
 
     // Set up all of the different conf directories.
-    for (MiniCassandraClusterNode node : nodes) {
+    for (MiniCassandraClusterNode node : mNodes) {
       node.setup();
     }
 
     // Actually start the nodes!
-    for (MiniCassandraClusterNode node : nodes) {
+    for (MiniCassandraClusterNode node : mNodes) {
       node.start();
     }
 
@@ -82,6 +85,10 @@ public class MiniCassandraCluster extends MavenLogged {
       return;
     }
     // TODO: Some stuff.
+    // Actually start the nodes!
+    for (MiniCassandraClusterNode node : mNodes) {
+      node.stop();
+    }
   }
 
 }

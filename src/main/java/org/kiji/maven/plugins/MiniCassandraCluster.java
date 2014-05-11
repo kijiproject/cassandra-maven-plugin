@@ -5,6 +5,9 @@ import java.util.List;
 
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.core.exceptions.NoHostAvailableException;
+import com.google.common.base.Splitter;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.apache.maven.plugin.logging.Log;
 
@@ -29,6 +32,39 @@ public class MiniCassandraCluster extends MavenLogged {
     return mIsRunning;
   }
 
+  private List<String> getSeeds() {
+    List<String> seeds = Lists.newArrayList();
+
+    // Get the base of the IP address.
+    List<String> ipComponents = Lists.newArrayList(
+        Splitter.on(".").split(mCassandraConfiguration.getInitialIpAddress())
+    );
+
+    if (ipComponents.size() != 4) {
+      throw new IllegalArgumentException("Looks like " +
+          mCassandraConfiguration.getInitialIpAddress() +
+          " is not a legal IP address.");
+    }
+    int ipStart;
+    try {
+      ipStart = Integer.parseInt(ipComponents.get(3));
+    } catch (NumberFormatException nfe) {
+      throw new IllegalArgumentException("Looks like " +
+          mCassandraConfiguration.getInitialIpAddress() +
+          " is not a legal IP address.");
+    }
+
+    for (int nodeNum = 0; nodeNum < mCassandraConfiguration.getNumNodes(); nodeNum++) {
+      seeds.add(String.format("%s.%s.%s.%s",
+          ipComponents.get(0),
+          ipComponents.get(1),
+          ipComponents.get(2),
+          nodeNum + ipStart
+          ));
+    }
+    return seeds;
+  }
+
   /**
    * Starts the cluster.  Blocks until ready.
    *
@@ -40,10 +76,7 @@ public class MiniCassandraCluster extends MavenLogged {
     }
 
     // TODO: Check that the number of nodes is legal...
-    List<String> seeds = Lists.newArrayList();
-    for (int nodeNum = 1; nodeNum < 1+mCassandraConfiguration.getNumNodes(); nodeNum++) {
-      seeds.add("127.0.0." + nodeNum);
-    }
+    List<String> seeds = getSeeds();
 
     mNodes = Lists.newArrayList();
 
@@ -74,17 +107,40 @@ public class MiniCassandraCluster extends MavenLogged {
 
     mIsRunning = true;
 
+    // Wait for the cluster to start running.
+
+    // Seems that the cluster often needs ~10 sec to get started.
+    Thread.sleep(1000 * 10);
+
     // Sanity check that we can connect to the cluster.
-    /*
     Cluster cluster = Cluster.builder()
         .addContactPoints(seeds.toArray(new String[seeds.size()]))
         .withPort(mCassandraConfiguration.getPortNativeTransport())
         .build();
-    Session session = cluster.connect();
-    getLog().info("Connected to cluster.");
-    session.close();
+
+    // It often takes ~10 seconds for the cluster to start.
+    final int MAX_NUM_TRIES = 5;
+    final int SLEEP_TIME_SECONDS = 2;
+    boolean connected = false;
+    for (int numTries = 0; numTries < MAX_NUM_TRIES; numTries++) {
+      // Sleep for two seconds.
+      Thread.sleep(1000*SLEEP_TIME_SECONDS);
+      try {
+        Session session = cluster.connect();
+        getLog().info("Connected to cluster.");
+        session.close();
+        connected = true;
+        break;
+      } catch (NoHostAvailableException ex) {
+        // Don't do anything here -- just try again.
+      }
+    }
+    if (!connected) {
+      throw new RuntimeException("Cassandra cluster should be up now, but cannot connect!");
+    } else {
+      getLog().info("Test connection to Cassandra successful -- cluster is up!.");
+    }
     cluster.close();
-    */
   }
 
   /**

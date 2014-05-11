@@ -48,12 +48,16 @@ public class StartMojo extends AbstractMojo {
   private int mNumVirtualNodes;
 
   /** Directory into which to put all of the Cassandra stuff. */
-  @Parameter(property = "cassandra.dir", defaultValue = "${project.build.directory}/cassandra")
+  @Parameter(property = "cassandra.dir", defaultValue = "${project.build.directory}/cassandra-it")
   private File mCassandraDir;
 
   /** Dependencies for the plugin (needed for setting the classpath for Cassandra processes). */
   @Parameter(defaultValue="${plugin.artifacts}", readonly = true)
   private List<Artifact> pluginDependencies;
+
+  /** IP address for node 0 (add 1 for every additional node's address). */
+  @Parameter(alias = "initial.ip", defaultValue = "127.0.0.1")
+  private String mInitialIpAddress;
 
   // -----------------------------------------------------------------------------------------------
   // Different port settings
@@ -120,6 +124,7 @@ public class StartMojo extends AbstractMojo {
     config.setPortRpc(mPortRpc);
     config.setPortSslStorage(mPortSslStorage);
     config.setPortStorage(mPortStorage);
+    config.setInitialIpAddress(mInitialIpAddress);
     return config;
   }
 }

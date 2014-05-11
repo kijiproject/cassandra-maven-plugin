@@ -18,10 +18,6 @@ public class AppIT {
   private static final Logger LOG = LoggerFactory.getLogger(AppIT.class);
   @Test
   public void simpleTest() {
-    try {
-      Thread.sleep(1000 * 1);
-    } catch (InterruptedException ie) {
-    }
     Cluster cluster = Cluster.builder()
         .addContactPoint("127.0.0.1")
         .build();

@@ -13,6 +13,11 @@ public class CassandraConfiguration {
   private int portNativeTransport;
   private int numVirtualNodes;
   private File cassandraDir;
+  private int portStorage;
+  private int portSslStorage;
+  private int portRpc;
+  private String initialIpAddress;
+  private List<Artifact> pluginDependencies;
 
   public int getPortStorage() {
     return portStorage;
@@ -38,9 +43,13 @@ public class CassandraConfiguration {
     this.portRpc = portRpc;
   }
 
-  private int portStorage;
-  private int portSslStorage;
-  private int portRpc;
+  public String getInitialIpAddress() {
+    return initialIpAddress;
+  }
+
+  public void setInitialIpAddress(String initialIpAddress) {
+    this.initialIpAddress = initialIpAddress;
+  }
 
   public List<Artifact> getPluginDependencies() {
     return pluginDependencies;
@@ -50,35 +59,36 @@ public class CassandraConfiguration {
     this.pluginDependencies = pluginDependencies;
   }
 
-  private List<Artifact> pluginDependencies;
-
-  public void setNumNodes(int numNodes) {
-    this.numNodes = numNodes;
-  }
   public int getNumNodes() {
     return numNodes;
   }
 
-  public void setPortNativeTransport(int portNativeTransport) {
-    this.portNativeTransport = portNativeTransport;
+  public void setNumNodes(int numNodes) {
+    this.numNodes = numNodes;
   }
+
   public int getPortNativeTransport() {
     return portNativeTransport;
   }
 
-  public void setCassandraDir(File cassandraDir) {
-    this.cassandraDir = cassandraDir;
+  public void setPortNativeTransport(int portNativeTransport) {
+    this.portNativeTransport = portNativeTransport;
   }
 
   public File getCassandraDir() {
     return cassandraDir;
   }
 
-  public void setNumVirtualNodes(int numVirtualNodes) {
-    this.numVirtualNodes = numVirtualNodes;
+  public void setCassandraDir(File cassandraDir) {
+    this.cassandraDir = cassandraDir;
   }
+
   public int getNumVirtualNodes() {
     return numVirtualNodes;
+  }
+
+  public void setNumVirtualNodes(int numVirtualNodes) {
+    this.numVirtualNodes = numVirtualNodes;
   }
 }
 

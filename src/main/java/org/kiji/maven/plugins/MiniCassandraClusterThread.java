@@ -64,7 +64,7 @@ public class MiniCassandraClusterThread extends Thread implements MavenLoggable 
     try {
       mCassandraCluster.startup();
     } catch (Exception e) {
-      getLog().error("Unable to start a Cassandra cluster.", e);
+      getLog().error("Error starting start a Cassandra cluster.", e);
       return;
     }
     getLog().info("Cassandra cluster started.");

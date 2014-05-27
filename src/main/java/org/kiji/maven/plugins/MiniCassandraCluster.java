@@ -2,6 +2,7 @@ package org.kiji.maven.plugins;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.RejectedExecutionException;
 
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Session;
@@ -120,7 +121,7 @@ public class MiniCassandraCluster extends MavenLogged {
 
     // It often takes ~10 seconds for the cluster to start.
     final int MAX_NUM_TRIES = 5;
-    final int SLEEP_TIME_SECONDS = 2;
+    final int SLEEP_TIME_SECONDS = 3;
     boolean connected = false;
     for (int numTries = 0; numTries < MAX_NUM_TRIES; numTries++) {
       // Sleep for two seconds.
@@ -133,12 +134,17 @@ public class MiniCassandraCluster extends MavenLogged {
         break;
       } catch (NoHostAvailableException ex) {
         // Don't do anything here -- just try again.
+        getLog().info("No host available...");
+      } catch (RejectedExecutionException ree) {
+        // Don't do anything here -- just try again.
+        getLog().info("RejectedExecutionException... (If you are on OS X, try running "
+            + "sudo ifconfig lo0 alias 127.0.0.[0-15]");
       }
     }
     if (!connected) {
       throw new RuntimeException("Cassandra cluster should be up now, but cannot connect!");
     } else {
-      getLog().info("Test connection to Cassandra successful -- cluster is up!.");
+      getLog().info("Test connection to Cassandra successful -- cluster is up!");
     }
     cluster.close();
   }

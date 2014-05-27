@@ -366,7 +366,7 @@ public class MiniCassandraClusterNode extends MavenLogged {
       );
       pb.directory(mRootDir);
       mCassandraProcess = pb.start();
-      getLog().info("Successfully started node " + mNodeId);
+      //getLog().info("Successfully started node " + mNodeId);
     } catch (IOException ioe) {
       getLog().warn("Could not start Cassandra node " + mNodeId);
     }

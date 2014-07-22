@@ -345,7 +345,13 @@ public class MiniCassandraClusterNode extends MavenLogged {
    * Start a dedicated Cassandra process for this node.
    */
   public void start() {
-    getLog().info("Starting node " + mNodeId + " (" + mMyAddress + ")");
+    getLog().info(String.format(
+        "Starting node #%s: %s:%s",
+        mNodeId,
+        mMyAddress,
+        mCassandraConfiguration.getPortNativeTransport()
+    ));
+
     try {
       ProcessBuilder pb = new ProcessBuilder();
 

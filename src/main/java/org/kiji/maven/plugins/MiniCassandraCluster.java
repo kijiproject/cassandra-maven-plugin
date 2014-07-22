@@ -78,6 +78,11 @@ public class MiniCassandraCluster extends MavenLogged {
           .addContactPoints(seeds.toArray(new String[seeds.size()]))
           .withPort(mCassandraConfiguration.getPortNativeTransport())
           .build();
+      getLog().debug(String.format(
+          "Trying to connect using addresses %s and port %s",
+          seeds,
+          mCassandraConfiguration.getPortNativeTransport()
+      ));
       Session session = cluster.connect();
       connected = true;
       session.close();

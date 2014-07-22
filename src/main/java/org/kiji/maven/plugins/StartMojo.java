@@ -44,11 +44,11 @@ public class StartMojo extends AbstractMojo {
   private int mNumNodes;
 
   /** Number of vnodes per Cassandra node. */
-  @Parameter(property = "num.virtual.nodes", defaultValue = "256")
+  @Parameter(property = "cassandra.numVirtualNodes", defaultValue = "256")
   private int mNumVirtualNodes;
 
   /** Directory into which to put all of the Cassandra stuff. */
-  @Parameter(property = "cassandra.dir", defaultValue = "${project.build.directory}/cassandra-it")
+  @Parameter(property = "cassandraDir", defaultValue = "${project.build.directory}/cassandra-it")
   private File mCassandraDir;
 
   /** Dependencies for the plugin (needed for setting the classpath for Cassandra processes). */
@@ -56,26 +56,26 @@ public class StartMojo extends AbstractMojo {
   private List<Artifact> pluginDependencies;
 
   /** IP address for node 0 (add 1 for every additional node's address). */
-  @Parameter(alias = "initial.ip", defaultValue = "127.0.0.1")
+  @Parameter(property = "cassandra.initialIp", alias = "cassandra.initialIp", defaultValue = "127.0.0.1")
   private String mInitialIpAddress;
 
   // -----------------------------------------------------------------------------------------------
   // Different port settings
 
   /** Port to use for Cassandra native transport. */
-  @Parameter(alias = "native.port", defaultValue = "9042")
+  @Parameter(property = "cassandra.nativePort", alias = "cassandra.nativePort", defaultValue = "9042")
   private int mPortNativeTransport;
 
   /** Storage port. */
-  @Parameter(alias = "storage.port", defaultValue = "7000")
+  @Parameter(property = "cassandra.storagePort", alias = "cassandra.storagePort", defaultValue = "7000")
   private int mPortStorage;
 
   /** SSL storage port. */
-  @Parameter(alias = "ssl.storage.port", defaultValue = "7001")
+  @Parameter(property = "cassandra.sslStoragePort", alias = "cassandra.sslStoragePort", defaultValue = "7001")
   private int mPortSslStorage;
 
   /** RPC port. */
-  @Parameter(alias = "rpc.port", defaultValue = "9160")
+  @Parameter(property = "cassandra.rpcPort", alias = "cassandra.rpcPort", defaultValue = "9160")
   private int mPortRpc;
 
   int getPortNativeTransport() {

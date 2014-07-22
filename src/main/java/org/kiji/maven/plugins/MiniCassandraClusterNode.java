@@ -376,6 +376,7 @@ public class MiniCassandraClusterNode extends MavenLogged {
    * Stop the process associated with this node.
    */
   public void stop() {
+    getLog().info("Attempting to shut down node " + mNodeId);
     mCassandraProcess.destroy();
     getLog().info("Stopped node " + mNodeId);
   }

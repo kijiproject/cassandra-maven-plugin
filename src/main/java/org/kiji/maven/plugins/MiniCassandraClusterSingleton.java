@@ -33,12 +33,14 @@ public enum MiniCassandraClusterSingleton {
 
     // Wait for the cluster to be ready.
     log.info("Waiting for cluster to be ready...");
-    while (!mThread.isClusterReady()) {
+    while (!mThread.isClusterReady() && mThread.isAlive()) {
       try {
         Thread.sleep(1000);
       } catch (InterruptedException e) {
-        log.info("Still waiting...");
+        log.info("Interrupted...");
+        Thread.currentThread().interrupt();
       }
+      log.debug("Still waiting...");
     }
     log.info("Finished waiting for Cassandra cluster thread.");
   }
@@ -60,7 +62,7 @@ public enum MiniCassandraClusterSingleton {
       try {
         mThread.join();
       } catch (InterruptedException e) {
-        log.debug("Cassandra cluster thread interrupted.");
+        log.info("Cassandra cluster thread interrupted.");
       }
     }
     log.info("Cassandra cluster thread stopped.");

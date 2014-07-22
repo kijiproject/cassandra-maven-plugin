@@ -61,22 +61,28 @@ public class MiniCassandraClusterThread extends Thread implements MavenLoggable 
   @Override
   public void run() {
     getLog().info("Starting up Cassandra cluster...");
+    boolean startedSuccessfully;
     try {
       mCassandraCluster.startup();
+      startedSuccessfully = true;
     } catch (Exception e) {
       getLog().error("Error starting start a Cassandra cluster.", e);
-      return;
+      startedSuccessfully = false;
     }
-    getLog().info("Cassandra cluster started.");
-    mIsClusterReady = true;
-    yield();
 
-    // Twiddle our thumbs until somebody requests the thread to stop.
-    while (!mIsStopRequested) {
-      try {
-        sleep(1000);
-      } catch (InterruptedException e) {
-        getLog().debug("Main thread interrupted while waiting for cluster to stop.");
+    if (startedSuccessfully) {
+      getLog().info("Cassandra cluster started.");
+      mIsClusterReady = true;
+      yield();
+
+      // Twiddle our thumbs until somebody requests the thread to stop.
+      while (!mIsStopRequested) {
+        try {
+          sleep(1000);
+        } catch (InterruptedException e) {
+          getLog().debug("Main thread interrupted while waiting for cluster to stop.");
+          Thread.currentThread().interrupt();
+        }
       }
     }
 

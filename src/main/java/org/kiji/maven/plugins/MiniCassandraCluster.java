@@ -6,9 +6,7 @@ import java.util.concurrent.RejectedExecutionException;
 
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Session;
-import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.google.common.base.Splitter;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.apache.maven.plugin.logging.Log;
 
@@ -67,29 +65,39 @@ public class MiniCassandraCluster extends MavenLogged {
   }
 
   /**
-   * Starts the cluster.  Blocks until ready.
-   *
-   * @throws Exception If there is an error.
+   * @return Whether it is currently possible to connect to the Cassandra cluster.
    */
-  public void startup() throws Exception {
-    if (isRunning()) {
-      throw new RuntimeException("Cluster already running.");
-    }
-
-    // TODO: Check that the number of nodes is legal...
+  private boolean ableToConnectToCluster() {
     List<String> seeds = getSeeds();
+    boolean connected;
 
-    mNodes = Lists.newArrayList();
-
-    // Create a separate object for each node in the cluster.
-    for (int nodeNum = 0; nodeNum < mCassandraConfiguration.getNumNodes(); nodeNum++) {
-      mNodes.add(new MiniCassandraClusterNode(
-          getLog(),
-          nodeNum,
-          seeds.get(nodeNum),
-          seeds,
-          mCassandraConfiguration));
+    connected = false;
+    try {
+      // Sanity check that we *cannot* connect to the cluster before starting.
+      Cluster cluster = Cluster.builder()
+          .addContactPoints(seeds.toArray(new String[seeds.size()]))
+          .withPort(mCassandraConfiguration.getPortNativeTransport())
+          .build();
+      Session session = cluster.connect();
+      connected = true;
+      session.close();
+      cluster.close();
+    } catch (RejectedExecutionException ree) {
+      // This should never happen - Give the user a friendly message.
+      getLog().error("RejectedExecutionException... (If you are on OS X, try running "
+              + "sudo ifconfig lo0 alias 127.0.0.[0-15]");
+    } catch (Exception e) {
+      // Don't do anything.  Whatever code called this code will handle the lack of a connection.
     }
+    return connected;
+  }
+
+  /**
+   * Set up the Cassandra integration test directory, along with whatever per-node setup is
+   * necessary.
+   */
+  private void initializeCassandraDirectories() {
+    // TODO: Delete existing root directory.
 
     // Create root directory.
     if (!mCassandraConfiguration.getCassandraDir().mkdir()) {
@@ -99,6 +107,48 @@ public class MiniCassandraCluster extends MavenLogged {
     // Set up all of the different conf directories.
     for (MiniCassandraClusterNode node : mNodes) {
       node.setup();
+    }
+  }
+
+  /**
+   * Create the per-node `MiniCassandraClusterNode` objects for this `MiniCassandraCluster`.
+   */
+  private void createNodeObjects() {
+    // TODO: Check that the number of nodes is legal...
+    List<String> seeds = getSeeds();
+
+    mNodes = Lists.newArrayList();
+
+    // Create a separate object for each node in the cluster.
+    for (int nodeNum = 0; nodeNum < mCassandraConfiguration.getNumNodes(); nodeNum++) {
+      mNodes.add(new MiniCassandraClusterNode(
+              getLog(),
+              nodeNum,
+              seeds.get(nodeNum),
+              seeds,
+              mCassandraConfiguration));
+    }
+  }
+
+  /**
+   * Starts the cluster.  Blocks until ready.
+   *
+   * @throws Exception If there is an error.
+   */
+  public void startup() throws Exception {
+    if (isRunning()) {
+      throw new RuntimeException("Cluster already running.");
+    }
+
+    // Create the actual node objects (each has a different node ID, IP address, etc.)
+    createNodeObjects();
+
+    // Create Yaml, properties files, etc. for each node.
+    initializeCassandraDirectories();
+
+    // We should not yet be able to connect to the cluster!
+    if (ableToConnectToCluster()) {
+      throw new RuntimeException("Failure during sanity check before starting Cassandra cluster.");
     }
 
     // Actually start the nodes!
@@ -113,32 +163,16 @@ public class MiniCassandraCluster extends MavenLogged {
     // Seems that the cluster often needs ~10 sec to get started.
     Thread.sleep(1000 * 10);
 
-    // Sanity check that we can connect to the cluster.
-    Cluster cluster = Cluster.builder()
-        .addContactPoints(seeds.toArray(new String[seeds.size()]))
-        .withPort(mCassandraConfiguration.getPortNativeTransport())
-        .build();
-
     // It often takes ~10 seconds for the cluster to start.
-    final int MAX_NUM_TRIES = 5;
-    final int SLEEP_TIME_SECONDS = 3;
+    final int maxNumTries = 5;
+    final int sleepTimeSeconds = 3;
     boolean connected = false;
-    for (int numTries = 0; numTries < MAX_NUM_TRIES; numTries++) {
+    for (int numTries = 0; numTries < maxNumTries; numTries++) {
       // Sleep for two seconds.
-      Thread.sleep(1000*SLEEP_TIME_SECONDS);
-      try {
-        Session session = cluster.connect();
-        getLog().info("Connected to cluster.");
-        session.close();
-        connected = true;
+      Thread.sleep(1000* sleepTimeSeconds);
+      connected = ableToConnectToCluster();
+      if (connected) {
         break;
-      } catch (NoHostAvailableException ex) {
-        // Don't do anything here -- just try again.
-        getLog().info("No host available...");
-      } catch (RejectedExecutionException ree) {
-        // Don't do anything here -- just try again.
-        getLog().info("RejectedExecutionException... (If you are on OS X, try running "
-            + "sudo ifconfig lo0 alias 127.0.0.[0-15]");
       }
     }
     if (!connected) {
@@ -146,7 +180,6 @@ public class MiniCassandraCluster extends MavenLogged {
     } else {
       getLog().info("Test connection to Cassandra successful -- cluster is up!");
     }
-    cluster.close();
   }
 
   /**
@@ -160,8 +193,6 @@ public class MiniCassandraCluster extends MavenLogged {
           "Attempting to shut down a cluster, but one was never started in this process.");
       return;
     }
-    // TODO: Some stuff.
-    // Actually start the nodes!
     for (MiniCassandraClusterNode node : mNodes) {
       node.stop();
     }

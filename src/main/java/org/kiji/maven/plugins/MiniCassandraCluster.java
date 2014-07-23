@@ -1,5 +1,7 @@
 package org.kiji.maven.plugins;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.RejectedExecutionException;
@@ -8,6 +10,7 @@ import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Session;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
+import org.apache.cassandra.io.util.FileUtils;
 import org.apache.maven.plugin.logging.Log;
 
 /**
@@ -102,11 +105,20 @@ public class MiniCassandraCluster extends MavenLogged {
    * necessary.
    */
   private void initializeCassandraDirectories() {
-    // TODO: Delete existing root directory.
+    final File cassandraRootDir = mCassandraConfiguration.getCassandraDir();
+
+    // Delete the existing directory, if it exists.
+    if (cassandraRootDir.exists()) {
+      try {
+        org.apache.commons.io.FileUtils.forceDelete(cassandraRootDir);
+      } catch (IOException ioe) {
+        throw new RuntimeException("Could not create root Cassandra dir " + cassandraRootDir);
+      }
+    }
 
     // Create root directory.
-    if (!mCassandraConfiguration.getCassandraDir().mkdir()) {
-      throw new RuntimeException("Could not create root C* dir " + mCassandraConfiguration.getCassandraDir());
+    if (!cassandraRootDir.mkdir()) {
+      throw new RuntimeException("Could not create root Cassandra dir " + cassandraRootDir);
     }
 
     // Set up all of the different conf directories.

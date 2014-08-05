@@ -487,7 +487,8 @@ compaction_preheat_key_cache: true
 # How long the coordinator should wait for read operations to complete
 read_request_timeout_in_ms: 5000
 # How long the coordinator should wait for seq or index scans to complete
-range_request_timeout_in_ms: 10000
+# KijiMR jobs can have very long timeouts during scans - wait for an entire minute here.
+range_request_timeout_in_ms: 60000
 # How long the coordinator should wait for writes to complete
 write_request_timeout_in_ms: 2000
 # How long a coordinator should continue to retry a CAS operation

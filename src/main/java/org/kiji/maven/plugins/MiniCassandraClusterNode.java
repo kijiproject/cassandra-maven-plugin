@@ -2,6 +2,7 @@ package org.kiji.maven.plugins;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.ProcessBuilder.Redirect;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Arrays;
@@ -98,12 +99,12 @@ public class MiniCassandraClusterNode extends MavenLogged {
   }
 
   /**
-   * Creates the log4j-server.properties file for this node.
+   * Creates the log4j.properties file for this node.
    *
    * @throws IOException if there is a problem writing the file.
    */
   private void createLog4jProperties() throws IOException {
-    getLog().info("Creating LOG4J for node " + mNodeId + ".");
+    getLog().debug("Creating LOG4J for node '" + mNodeId + "'");
 
     StringBuilder sb = new StringBuilder();
 
@@ -138,8 +139,8 @@ public class MiniCassandraClusterNode extends MavenLogged {
     sb.append("log4j.logger.org.apache.thrift.server.TNonblockingServer=ERROR\n");
 
     String serverProperties = sb.toString();
-    // Write out the new YAML.
-    File cassandraLogs = new File(mConfDir, "log4j-server.properties");
+    // Write out the log4j configuration file.
+    File cassandraLogs = new File(mConfDir, "log4j.properties");
     FileUtils.fileWrite(cassandraLogs.getAbsolutePath(), serverProperties);
   }
 
@@ -353,7 +354,7 @@ public class MiniCassandraClusterNode extends MavenLogged {
     ));
 
     try {
-      ProcessBuilder pb = new ProcessBuilder();
+      final ProcessBuilder processBuilder = new ProcessBuilder();
 
       // Build a Java command line for running Cassandra.
       String javaExec = getJavaExecutable();
@@ -361,18 +362,25 @@ public class MiniCassandraClusterNode extends MavenLogged {
       // Set the classpath to include all of the dependencies for this plugin (i.e., Cassandra).
       String classpath = getClasspath();
 
+      getLog().info("Classpath for Cassandra node " + mNodeId + " is " + classpath);
+
       // Set CASSANDRA_CONF appropriately.
-      Map<String, String> environmentVariables = pb.environment();
+      Map<String, String> environmentVariables = processBuilder.environment();
       updateEnvironmentVariables(environmentVariables);
-      pb.command(
+      processBuilder.command(
           javaExec,
           "-cp",
           classpath,
           CassandraDaemon.class.getCanonicalName()
       );
-      pb.directory(mRootDir);
-      mCassandraProcess = pb.start();
-      //getLog().info("Successfully started node " + mNodeId);
+      processBuilder.directory(mRootDir);
+
+      // Redirect output to a file:
+      File log = new File(mRootDir + "/cassandra-node-" + mNodeId + "-log");
+      processBuilder.redirectErrorStream(true);
+      processBuilder.redirectOutput(Redirect.appendTo(log));
+
+      mCassandraProcess = processBuilder.start();
     } catch (IOException ioe) {
       getLog().warn("Could not start Cassandra node " + mNodeId);
     }

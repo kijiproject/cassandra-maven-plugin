@@ -36,7 +36,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 )
 public class StartMojo extends AbstractMojo {
   /** If true, this goal should be a no-op. */
-  @Parameter(property = "cassandra.skip", defaultValue = "false")
+  @Parameter(property = "cassandra.skip", alias = "cassandra.skip", defaultValue = "false")
   private boolean mSkip;
 
   /** Number of nodes in the Cassandra cluster. */

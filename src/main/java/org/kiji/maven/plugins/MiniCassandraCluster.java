@@ -101,6 +101,20 @@ public class MiniCassandraCluster extends MavenLogged {
   }
 
   /**
+   * @return whether all of the underlying Cassandra processes for the nodes in this cluster are
+   *     are still alive.
+   */
+  private boolean allNodeProcessesAreAlive() {
+    for (MiniCassandraClusterNode node: mNodes) {
+      if (!node.isRunning()) {
+        getLog().error("Process for Cassandra node " + node + " died during plugin startup.");
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
    * Set up the Cassandra integration test directory, along with whatever per-node setup is
    * necessary.
    */
@@ -177,20 +191,25 @@ public class MiniCassandraCluster extends MavenLogged {
 
     // Wait for the cluster to start running.
 
-    // Seems that the cluster often needs ~10 sec to get started.
-    Thread.sleep(1000 * 10);
-
-    // It often takes ~10 seconds for the cluster to start.
-    final int maxNumTries = 5;
-    final int sleepTimeSeconds = 3;
+    // Allow a maximum of 5 minutes to start the entire cluster.
+    // Poll every 10 seconds.
+    final int maxNumTries = 30;
+    final int sleepTimeSeconds = 10;
     boolean connected = false;
+    boolean alive = false;
     for (int numTries = 0; numTries < maxNumTries; numTries++) {
-      // Sleep for two seconds.
-      Thread.sleep(1000* sleepTimeSeconds);
+      Thread.sleep(1000 * sleepTimeSeconds);
+      // Check whether we are now able to connect to the cluster.
       connected = ableToConnectToCluster();
-      if (connected) {
+      // Check that the process for all of the cluster nodes are still alive.
+      alive = allNodeProcessesAreAlive();
+      if (connected || !alive) {
         break;
       }
+    }
+
+    if (!alive) {
+      throw new RuntimeException("At least one of the Cassandra processes died during startup.");
     }
     if (!connected) {
       throw new RuntimeException("Cassandra cluster should be up now, but cannot connect!");

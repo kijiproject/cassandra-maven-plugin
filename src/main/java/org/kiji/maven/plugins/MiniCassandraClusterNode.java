@@ -83,6 +83,7 @@ public class MiniCassandraClusterNode extends MavenLogged {
     mCommitLogDir = new File(mRootDir, "commitlog");
     mSavedCachesDir = new File(mRootDir, "saved_caches");
     mCassandraConfiguration = configuration;
+    mCassandraProcess = null;
   }
 
   /**
@@ -108,7 +109,7 @@ public class MiniCassandraClusterNode extends MavenLogged {
 
     StringBuilder sb = new StringBuilder();
 
-    sb.append("log4j.rootLogger=INFO,stdout,R\n");
+    sb.append("log4j.rootLogger=DEBUG,stdout,R\n");
     sb
         .append("# stdout\n")
         .append("log4j.appender.stdout=org.apache.log4j.ConsoleAppender\n")
@@ -393,5 +394,22 @@ public class MiniCassandraClusterNode extends MavenLogged {
     getLog().info("Attempting to shut down node " + mNodeId);
     mCassandraProcess.destroy();
     getLog().info("Stopped node " + mNodeId);
+  }
+
+  /**
+   * @return whether the underlying Cassandra process is still running.
+   */
+  public boolean isRunning() {
+    if (null == mCassandraProcess) {
+      return false;
+    }
+    // Sadly, the Java Process API does not have a method for checking whether a process is alive.
+    try {
+      final int exitValue = mCassandraProcess.exitValue();
+    } catch (IllegalThreadStateException ex) {
+      // This means that the process is still running - no exit value yet.
+      return true;
+    }
+    return false;
   }
 }
